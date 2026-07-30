@@ -1,28 +1,60 @@
-# Render.com деплой конфигурациясы
-# https://render.com → New → Blueprint → осы репозиторийді таңдаңыз
+# ===========================================================================
+# Render.com деплой конфигурациясы (ТЕГІН жоспарға арналған)
+#
+# Render-дің тегін жоспарында тұрақты диск (persistent disk) БЕРІЛМЕЙДІ,
+# сондықтан деректер SQLite файлында емес, тегін PostgreSQL-де сақталады.
+# Дерекқор бөлек сервис болғандықтан, веб-сервис қайта іске қосылса да
+# студенттердің нәтижелері жоғалмайды.
+#
+# Қолдану: https://render.com → New → Blueprint → осы репозиторийді таңдау
+# ===========================================================================
+
+databases:
+  - name: kz-history-db
+    databaseName: kzhistory
+    user: kzhistory
+    plan: free            # 1 ГБ, тегін
+    region: frankfurt
+
 services:
   - type: web
     name: kz-history-rpg
     runtime: node
     plan: free
-    region: frankfurt
-    buildCommand: npm ci && npm run build
+    region: frankfurt     # дерекқормен бір регионда болуы керек
+    buildCommand: npm install && npm run build
     startCommand: node server/index.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: JWT_SECRET
-        generateValue: true      # Render автоматты кездейсоқ мән жасайды
-      - key: ADMIN_PASSWORD
-        sync: false              # Render панелінде қолмен енгізіңіз
+
+      # --- Дерекқор (тегін PostgreSQL, дискінің қажеті жоқ) ---
       - key: DB_DRIVER
-        value: sqlite
-      - key: SQLITE_FILE
-        value: /var/data/game.db
-      - key: UPLOADS_DIR
-        value: /var/data/uploads
-    disk:
-      name: game-data
-      mountPath: /var/data
-      sizeGB: 1
+        value: postgres
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kz-history-db
+          property: connectionString
+
+      # --- Қауіпсіздік ---
+      - key: JWT_SECRET
+        generateValue: true    # Render кездейсоқ мән жасайды
+      - key: ADMIN_PASSWORD
+        sync: false            # Render панелінде қолмен енгізіңіз
+
+      # --- Ойын параметрлері ---
+      - key: MAX_ATTEMPTS
+        value: "3"
+      - key: HEARTS_PER_ROOM
+        value: "5"
+
+# ===========================================================================
+# ЕСКЕРТУ: тегін жоспарда PDF тапсырмаларын админ панелі арқылы жүктегенде
+# ол уақытша файлдық жүйеде сақталады және сервис қайта қосылғанда
+# репозиторийдегі server/uploads/tasks.pdf нұсқасына оралады.
+#
+# Тапсырмаларды тұрақты өзгерту үшін жаңа PDF-ті GitHub репозиторийіндегі
+# server/uploads/tasks.pdf файлының орнына жүктеңіз — Render автоматты
+# қайта деплой жасайды.
+# ===========================================================================

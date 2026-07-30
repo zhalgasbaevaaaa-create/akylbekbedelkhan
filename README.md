@@ -437,13 +437,19 @@ kz-history-rpg/
 
 1. [render.com](https://render.com) сайтына GitHub арқылы кіріңіз
 2. **New → Blueprint** → осы репозиторийді таңдаңыз
-3. Render `render.yaml` файлын өзі оқиды. `ADMIN_PASSWORD` мәнін енгізіңіз
-4. **Apply** → 3–5 минуттан кейін сайт дайын
+3. Render `render.yaml` файлын өзі оқиды және **екі сервис** жасайды:
+   тегін PostgreSQL дерекқоры + веб-сайт
+4. `ADMIN_PASSWORD` мәнін енгізіңіз → **Apply** → 3–5 минут
 
 Мекенжай: `https://kz-history-rpg.onrender.com`
 
+> 💡 **Неге PostgreSQL?** Render-дің тегін жоспарында тұрақты диск жоқ
+> (`disks are not supported for free tier services`), сондықтан SQLite файлы
+> рестартта жоғалар еді. Деректер бөлек тегін PostgreSQL-де сақталады —
+> сайт қайта қосылса да нәтижелер орнында қалады.
+>
 > 💡 Тегін жоспарда сайт 15 минут белсенділік болмаса «ұйықтап» қалады,
-> келесі кіргенде ~30 секунд оянады. Деректер 1 ГБ дискіде сақталады.
+> келесі кіргенде ~30 секунд оянады.
 
 ### 2-нұсқа · Railway
 
@@ -528,16 +534,17 @@ docker compose down -v       # ⚠ деректерімен бірге өшір�
 
 ## 🐘 PostgreSQL
 
-Әдепкі — SQLite (ешқандай баптау қажет емес). PostgreSQL-ге көшу:
-
-```bash
-npm install pg
-```
+Жергілікті әзірлеуде — SQLite (ешқандай баптау қажет емес).
+Деплойда — PostgreSQL (диск қажет етпейді). `pg` пакеті әдепкіде орнатылған.
 
 ```env
 DB_DRIVER=postgres
 DATABASE_URL=postgres://user:password@localhost:5432/kzhistory
 ```
+
+Екі дерекқор да бірдей код арқылы жұмыс істейді — адаптер `$1` плейсхолдерлерін,
+`SERIAL`/`AUTOINCREMENT` айырмашылығын және типтерді өзі аударады.
+PostgreSQL үйлесімділігі 16 бөлек сынақпен тексерілген (`npm run test:postgres`).
 
 Схема іске қосылғанда автоматты құрылады. `docker-compose.yml` ішіндегі
 `postgres` сервисінің түсініктемесін алып тастасаңыз болғаны.
@@ -550,7 +557,15 @@ DATABASE_URL=postgres://user:password@localhost:5432/kzhistory
 npm test
 ```
 
-21 end-to-end сынақ тексереді:
+**51 сынақ** тексереді: 21 сервер (SQLite) + 14 клиент + 16 PostgreSQL.
+
+```bash
+npm run test:server     # SQLite E2E
+npm run test:client     # jsdom (UI компоненттері)
+npm run test:postgres   # PostgreSQL үйлесімділігі (PGlite = нағыз PG 18)
+```
+
+Сервер сынақтары:
 
 ```
 ✓ PDF автоматты оқылады және 7 бөлме табылады

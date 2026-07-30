@@ -11,12 +11,13 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "build": "node tools/build.js",
-    "test": "node tests/flow.test.js && node tests/client.test.mjs",
+    "test": "node tests/flow.test.js && node tests/client.test.mjs && node tests/postgres.test.mjs",
     "audio": "python3 tools/generate-audio.py",
     "db:reset": "node tools/reset-db.js",
     "postinstall": "node -e \"require('fs').existsSync('.env')||require('fs').copyFileSync('.env.example','.env')\"",
     "test:server": "node tests/flow.test.js",
-    "test:client": "node tests/client.test.mjs"
+    "test:client": "node tests/client.test.mjs",
+    "test:postgres": "node tests/postgres.test.mjs"
   },
   "keywords": [
     "kazakhstan-history",
@@ -46,12 +47,11 @@
     "multer": "^2.0.2",
     "pdfjs-dist": "4.2.67",
     "pdfkit": "^0.17.2",
+    "pg": "^8.13.1",
     "xlsx": "^0.18.5"
   },
-  "optionalDependencies": {
-    "pg": "^8.13.1"
-  },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "jsdom": "^29.1.1"
   }
 }

@@ -59,9 +59,19 @@ Password: ghp_осында_токеніңізді_қойыңыз
 1. [render.com](https://render.com) → **Get Started** → GitHub арқылы кіріңіз
 2. **New +** → **Blueprint**
 3. `akylbekbedelkhan` репозиторийін таңдаңыз
-4. Render `render.yaml` файлын өзі табады
+4. Render `render.yaml` файлын өзі табады — ол **екі сервис** жасайды:
+   - `kz-history-db` — тегін PostgreSQL дерекқоры
+   - `kz-history-rpg` — веб-сайт
 5. `ADMIN_PASSWORD` өрісіне өз пароліңізді жазыңыз
 6. **Apply** → 3–5 минут күтіңіз
+
+> **Неге PostgreSQL, SQLite емес?**
+> Render-дің тегін жоспарында тұрақты диск (persistent disk) берілмейді —
+> «disks are not supported for free tier services» деген қате осыдан шығады.
+> Дискісіз SQLite файлы әр рестартта жоғалар еді. Сондықтан деректер бөлек
+> тегін PostgreSQL сервисінде сақталады: сайт қайта қосылса да, студенттердің
+> нәтижелері орнында қалады. Кодта ешнәрсе өзгертудің қажеті жоқ —
+> дерекқор адаптері екеуін де қолдайды.
 
 Дайын! Сайт мекенжайы:
 ```
@@ -89,14 +99,16 @@ fly deploy
 ### Railway
 
 1. [railway.app](https://railway.app) → **New Project → Deploy from GitHub repo**
-2. Variables:
+2. **+ New → Database → PostgreSQL** қосыңыз (сол жобаның ішінде)
+3. Веб-сервистің **Variables** бөліміне:
    ```
+   DB_DRIVER      = postgres
+   DATABASE_URL   = ${{Postgres.DATABASE_URL}}
    JWT_SECRET     = ұзын-кездейсоқ-жол
    ADMIN_PASSWORD = өз-паролыңыз
-   SQLITE_FILE    = /data/game.db
-   UPLOADS_DIR    = /data/uploads
    ```
-3. **Settings → Volumes** → `/data` қосыңыз
+
+> Railway-де де диск орнына PostgreSQL қолданылады — солай сенімдірек.
 
 ---
 
@@ -149,3 +161,21 @@ fly deploy
 | Сайтта «Тапсырмалар жүктелмеген» | `/admin` → ⚙ Баптау → PDF жүктеңіз |
 | Студент нәтижесі жоғалды | Volume қосылмаған. Render → Disks бөлімін тексеріңіз |
 | Сайт баяу ашылады | Тегін жоспардың «ұйықтауы». Сабақ алдында бір рет ашып қойыңыз |
+| `disks are not supported for free tier services` | Ескі `render.yaml` дискіні сұраған. Қазіргі нұсқада диск жоқ — репозиторийді жаңартып, Blueprint-ті қайта жасаңыз |
+| `DATABASE_URL is not defined` | PostgreSQL сервисі құрылмаған. Render → Blueprint қайта іске қосыңыз немесе қолмен PostgreSQL қосып, `DATABASE_URL` айнымалысын байланыстырыңыз |
+
+---
+
+## 💾 Деректер қайда сақталады?
+
+| Не | Қайда | Рестарттан кейін |
+|---|---|---|
+| Студенттер, нәтижелер, Best Score | PostgreSQL (бөлек сервис) | ✅ сақталады |
+| Админ паролі (bcrypt hash) | PostgreSQL | ✅ сақталады |
+| PDF тапсырмалар | Репозиторийдегі `server/uploads/tasks.pdf` | ✅ автоматты қалпына келеді |
+| Админ панелі арқылы жүктелген PDF | Уақытша файлдық жүйе | ⚠️ рестартта бастапқы нұсқаға оралады |
+
+**Тапсырмаларды тұрақты өзгерту:** жаңа PDF-ті GitHub-тағы
+`server/uploads/tasks.pdf` файлының орнына жүктеңіз — Render автоматты
+қайта деплой жасайды. Ал админ панелі арқылы жүктеу — сабақ барысында
+жылдам тексеріп көруге ыңғайлы (рестартқа дейін жұмыс істейді).
