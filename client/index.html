@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#080b14" />
+  <meta name="description" content="Қазақстан тарихы пәніне арналған интерактивті RPG ойыны — 7 бөлмелі тарихи қамал." />
+  <title>Қазақстан тарихы · RPG қамалы</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="src/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏰</text></svg>" />
+</head>
+<body>
+
+<div id="loading">
+  <div style="text-align:center">
+    <div class="spinner" style="margin:0 auto"></div>
+    <div class="loading-text" id="loading-text">Жүктелуде…</div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="game-root"></div>
+
+  <!-- ============================== HUD ============================== -->
+  <div id="hud">
+    <div class="hud-box">
+      <span class="label">Бөлме</span>
+      <span class="value" id="hud-room">—</span>
+    </div>
+    <div class="hud-box">
+      <span class="label">Жан</span>
+      <span id="hearts"></span>
+    </div>
+    <div class="hud-box" id="timer-wrap" style="visibility:hidden">
+      <span class="label">Уақыт</span>
+      <span class="timer-bar" id="timer-bar"><i id="timer-fill"></i></span>
+      <span class="value" id="timer-label" style="font-size:.92rem">—</span>
+    </div>
+    <div class="hud-box">
+      <span class="label">Ұпай</span>
+      <span class="value" id="hud-score">0</span>
+    </div>
+  </div>
+
+  <!-- ========================== Task layer =========================== -->
+  <div id="task-layer">
+    <div class="task-header">
+      <div class="task-room" id="task-room-title">—</div>
+      <div class="task-progress" id="task-progress">—</div>
+    </div>
+    <div class="task-body" id="task-content"></div>
+    <div class="task-footer">
+      <div class="feedback" id="task-feedback"></div>
+    </div>
+  </div>
+
+  <!-- ============================= Menu ============================== -->
+  <section class="screen active" id="screen-menu">
+    <span class="corner-ornament tl"></span>
+    <span class="corner-ornament tr"></span>
+    <span class="corner-ornament bl"></span>
+    <span class="corner-ornament br"></span>
+    <div class="menu-inner">
+      <h1 class="game-title">ҚАЗАҚСТАН ТАРИХЫ</h1>
+      <div class="game-subtitle">Тарихи қамал · RPG сынағы</div>
+      <div class="ornament-band" style="margin:26px auto;max-width:520px"></div>
+      <p class="menu-desc">
+        Ежелгі қазақ қамалының жеті бөлмесі сені күтіп тұр. Әр бөлме —
+        Қазақстан тарихының бір тақырыбы. Қылышыңды қолға алып, білім сынағынан өт.
+        Бөлмелер тек ретімен ашылады, әр бөлмеде 5 жан беріледі.
+      </p>
+      <p class="menu-desc" id="menu-info" style="color:var(--turquoise);margin-top:14px">Тапсырмалар тексерілуде…</p>
+      <button class="btn btn-primary btn-xl btn-start" id="btn-play">🏰 ОЙЫНДЫ БАСТАУ</button>
+    </div>
+  </section>
+
+  <!-- =========================== Register ============================ -->
+  <section class="screen" id="screen-register">
+    <form class="panel" id="register-form" autocomplete="on" novalidate>
+      <h2 class="panel-title">СТУДЕНТТІ ТІРКЕУ</h2>
+      <p class="panel-sub">Нәтижелер дерекқорға сақталады. Әр студентке 3 әрекет беріледі.</p>
+      <div class="form-grid">
+        <div class="field">
+          <label for="f-first">Аты</label>
+          <input id="f-first" name="firstName" type="text" required minlength="2" maxlength="60" placeholder="Мысалы: Аслан" />
+        </div>
+        <div class="field">
+          <label for="f-last">Тегі</label>
+          <input id="f-last" name="lastName" type="text" required minlength="2" maxlength="60" placeholder="Мысалы: Серікұлы" />
+        </div>
+        <div class="field">
+          <label for="f-group">Тобы</label>
+          <input id="f-group" name="group" type="text" required minlength="2" maxlength="40" placeholder="Мысалы: ИС-21" />
+        </div>
+        <div class="field">
+          <label for="f-institution">Оқу орны</label>
+          <input id="f-institution" name="institution" type="text" required minlength="2" maxlength="120" placeholder="Мысалы: Алматы политехникалық колледжі" />
+        </div>
+      </div>
+      <div class="alert" id="register-alert"></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" id="btn-back-menu">← Артқа</button>
+        <button type="submit" class="btn btn-primary" id="btn-register">ЖАЛҒАСТЫРУ →</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ======================== Character select ======================= -->
+  <section class="screen" id="screen-character">
+    <div class="panel wide">
+      <h2 class="panel-title">КЕЙІПКЕР ТАҢДАУ</h2>
+      <p class="panel-sub" id="char-hint">4 батыр және 2 ханшайым — біреуін таңдаңыз</p>
+      <div class="char-grid" id="char-grid"></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" id="btn-back-register">← Артқа</button>
+        <button type="button" class="btn btn-primary btn-xl" id="btn-start-game">⚔ ҚАМАЛҒА КІРУ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ Overlay ============================ -->
+  <section class="screen" id="screen-overlay">
+    <div id="overlay-body" style="width:100%;display:flex;flex-direction:column;align-items:center"></div>
+  </section>
+
+  <div class="fab-row">
+    <button class="fab" id="btn-sound" title="Дыбыс">🔊</button>
+    <button class="fab" id="btn-fullscreen" title="Толық экран">⛶</button>
+    <button class="fab" id="btn-admin-secret" title="Админ">🔐</button>
+  </div>
+</div>
+
+<div id="toast-host"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

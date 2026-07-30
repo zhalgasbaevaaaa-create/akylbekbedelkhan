@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Админ панелі · Қазақстан тарихы RPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../src/styles.css" />
+  <link rel="stylesheet" href="admin.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>" />
+</head>
+<body class="scrollable admin-body">
+
+<!-- ============================== Login ============================== -->
+<section class="screen active" id="screen-login">
+  <form class="panel" id="login-form" style="max-width:440px">
+    <h2 class="panel-title">🔐 АДМИН ПАНЕЛІ</h2>
+    <p class="panel-sub">Кіру үшін парольді енгізіңіз</p>
+    <div class="form-grid" style="grid-template-columns:1fr">
+      <div class="field">
+        <label for="admin-pass">Пароль</label>
+        <input id="admin-pass" type="password" autocomplete="current-password" required />
+      </div>
+    </div>
+    <div class="alert" id="login-alert"></div>
+    <div class="form-actions">
+      <a class="btn btn-ghost" href="/">← Ойынға</a>
+      <button type="submit" class="btn btn-primary" id="btn-login">КІРУ</button>
+    </div>
+  </form>
+</section>
+
+<!-- ============================ Dashboard ============================ -->
+<div id="dashboard" hidden>
+  <header class="admin-header">
+    <div class="brand">
+      <span class="brand-mark">🏰</span>
+      <div>
+        <div class="brand-title">Қазақстан тарихы RPG</div>
+        <div class="brand-sub">Мұғалім басқару панелі</div>
+      </div>
+    </div>
+    <nav class="admin-nav">
+      <button class="nav-btn active" data-tab="overview">📊 Шолу</button>
+      <button class="nav-btn" data-tab="students">👥 Студенттер</button>
+      <button class="nav-btn" data-tab="rooms">🏛 Бөлмелер</button>
+      <button class="nav-btn" data-tab="questions">❓ Сұрақтар</button>
+      <button class="nav-btn" data-tab="settings">⚙ Баптау</button>
+    </nav>
+    <div class="header-actions">
+      <button class="btn btn-sm btn-accent" id="btn-export-excel">📥 Excel</button>
+      <button class="btn btn-sm btn-accent" id="btn-export-pdf">📄 PDF</button>
+      <button class="btn btn-sm btn-ghost" id="btn-refresh" title="Жаңарту">↻</button>
+      <button class="btn btn-sm btn-danger" id="btn-logout">Шығу</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <!-- --------------------------- Overview -------------------------- -->
+    <section class="tab active" id="tab-overview">
+      <div class="kpi-grid" id="kpi-grid"></div>
+      <div class="chart-grid">
+        <div class="card">
+          <h3 class="card-title">TOP 10 рейтинг</h3>
+          <canvas id="chart-top10" height="260"></canvas>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Бөлме бойынша орташа ұпай</h3>
+          <canvas id="chart-rooms" height="260"></canvas>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Бөлмеден өткен / тоқтаған студенттер</h3>
+          <canvas id="chart-progress" height="260"></canvas>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Дұрыс / қате жауап үлесі</h3>
+          <canvas id="chart-accuracy" height="260"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- --------------------------- Students -------------------------- -->
+    <section class="tab" id="tab-students">
+      <div class="card">
+        <div class="filters">
+          <input type="search" id="filter-search" placeholder="🔍 Аты, тегі немесе тобы бойынша іздеу…" />
+          <select id="filter-group"><option value="">Барлық топ</option></select>
+          <select id="filter-institution"><option value="">Барлық оқу орны</option></select>
+          <span class="filter-count" id="filter-count"></span>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table" id="students-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Аты-жөні</th><th>Тобы</th><th>Оқу орны</th>
+                <th>1</th><th>2</th><th>3</th>
+                <th>Best</th><th>Дәлдік</th><th>Уақыт</th><th>Соңғы</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------- Rooms ---------------------------- -->
+    <section class="tab" id="tab-rooms">
+      <div class="card">
+        <h3 class="card-title">Әр бөлменің статистикасы</h3>
+        <div class="table-scroll">
+          <table class="data-table" id="rooms-table">
+            <thead>
+              <tr>
+                <th>№</th><th>Бөлме</th><th>Ойналды</th><th>Өтті</th><th>Тоқтады</th>
+                <th>Орташа ұпай</th><th>Орташа уақыт</th><th>Дұрыс</th><th>Қате</th><th>Дәлдік</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- -------------------------- Questions -------------------------- -->
+    <section class="tab" id="tab-questions">
+      <div class="card">
+        <div class="filters">
+          <h3 class="card-title" style="margin:0;flex:1">Әр сұрақтың дұрыс/қате статистикасы</h3>
+          <select id="filter-room"><option value="">Барлық бөлме</option></select>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table" id="questions-table">
+            <thead>
+              <tr><th>Бөлме</th><th>Сұрақ / тапсырма</th><th>Дұрыс</th><th>Қате</th><th>Барлығы</th><th>Сәттілік</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- --------------------------- Settings -------------------------- -->
+    <section class="tab" id="tab-settings">
+      <div class="settings-grid">
+        <div class="card">
+          <h3 class="card-title">📄 PDF тапсырмалар</h3>
+          <p class="card-desc">
+            Жаңа PDF жүктегенде тапсырмалар автоматты түрде қайта оқылады.
+            Кодқа ешқандай өзгеріс енгізудің қажеті жоқ.
+          </p>
+          <div id="tasks-info" class="info-list"></div>
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" id="pdf-input" accept="application/pdf,.pdf" hidden />
+            <div class="upload-icon">📤</div>
+            <div>PDF файлды осында сүйреңіз немесе <b>басып таңдаңыз</b></div>
+            <div class="upload-hint">Максимум 25 МБ · тек .pdf</div>
+          </div>
+          <div class="alert" id="upload-alert"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">📊 Google Sheets (OPTIONAL)</h3>
+          <p class="card-desc">
+            Service Account кілтін енгізсеңіз, нәтижелер автоматты түрде
+            Google Sheets-ке жазылады. Бапталмаса, жоба қалыпты жұмысын жалғастырады.
+          </p>
+          <div class="field">
+            <label>Spreadsheet ID</label>
+            <input id="sheets-id" type="text" placeholder="1AbCdEf..." />
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label>Парақ атауы</label>
+            <input id="sheets-name" type="text" placeholder="Нәтижелер" />
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label>Service Account JSON</label>
+            <textarea id="sheets-creds" rows="5" placeholder='{"type":"service_account", ...}'></textarea>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="sheets-enabled" />
+            <span>Интеграцияны қосу</span>
+          </label>
+          <div class="form-actions" style="justify-content:flex-start">
+            <button class="btn btn-sm btn-primary" id="btn-sheets-save">Сақтау</button>
+            <button class="btn btn-sm btn-accent" id="btn-sheets-sync">↻ Синхрондау</button>
+          </div>
+          <div class="alert" id="sheets-alert"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">🔑 Парольді өзгерту</h3>
+          <p class="card-desc">Пароль bcrypt hash түрінде сақталады.</p>
+          <div class="field">
+            <label>Ағымдағы пароль</label>
+            <input id="pass-current" type="password" autocomplete="current-password" />
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label>Жаңа пароль (кемінде 8 таңба)</label>
+            <input id="pass-new" type="password" autocomplete="new-password" />
+          </div>
+          <div class="form-actions" style="justify-content:flex-start">
+            <button class="btn btn-sm btn-primary" id="btn-pass-save">Өзгерту</button>
+          </div>
+          <div class="alert" id="pass-alert"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ========================= Student modal ========================== -->
+<div class="modal" id="student-modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-body">
+    <button class="modal-close" data-close>✕</button>
+    <div id="student-card-content"></div>
+  </div>
+</div>
+
+<div id="toast-host"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script type="module" src="admin.js"></script>
+</body>
+</html>
