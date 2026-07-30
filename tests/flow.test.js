@@ -298,6 +298,68 @@ test('Rate limiting белсенді', async () => {
   assert.ok(res.headers.get('ratelimit-limit'), 'RateLimit тақырыптары болуы керек');
 });
 
+test('Кэш стратегиясы дұрыс: код жаңарады, ресурстар кэштеледі', async () => {
+  // 1) Әзірлеу/сынақ режимінде ешнәрсе кэштелмейді
+  for (const p of ['/index.html', '/src/styles.css', '/src/main.js']) {
+    const res = await fetch(base + p);
+    assert.strictEqual(res.status, 200, `${p} қолжетімді`);
+    const cc = res.headers.get('cache-control') || '';
+    assert.ok(/no-cache|no-store/.test(cc), `${p}: кэштелмеуі керек (алынды: ${cc})`);
+    assert.ok(res.headers.get('etag'), `${p}: ETag болуы керек`);
+  }
+
+  // 2) Production логикасын бөлек тексеру:
+  //    код файлдары — no-cache, ал сурет/аудио — ұзақ кэш
+  const path = require('path');
+  const express = require('express');
+  const config = require('../server/config');
+
+  const LONG = /\.(png|jpe?g|gif|webp|svg|ico|ogg|mp3|wav|woff2?|ttf|otf)$/i;
+  const prodApp = express();
+  prodApp.use(express.static(config.clientDir, {
+    etag: true,
+    setHeaders(res, filePath) {
+      if (LONG.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      else res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    },
+  }));
+
+  const srv = await new Promise((resolve) => {
+    const s = prodApp.listen(0, () => resolve(s));
+  });
+  const prodBase = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    const css = await fetch(`${prodBase}/src/styles.css`);
+    assert.match(css.headers.get('cache-control'), /no-cache/,
+      'CSS деплойдан кейін бірден жаңаруы керек');
+
+    const img = await fetch(`${prodBase}/assets/characters/batyr_1.png`);
+    assert.match(img.headers.get('cache-control'), /max-age=604800/,
+      'суреттер ұзақ кэштелуі керек');
+
+    // ETag арқылы 304 — өзгермеген файл қайта жүктелмейді.
+    // Node-тың fetch() шартты сұранысты өз кэшімен алмастыратындықтан,
+    // мұнда шикі HTTP қолданылады (браузер дәл осылай жібереді).
+    const etag = css.headers.get('etag');
+    assert.ok(etag, 'ETag болуы керек');
+    const http = require('http');
+    const status = await new Promise((resolve, reject) => {
+      const req = http.get({
+        port: srv.address().port,
+        path: '/src/styles.css',
+        headers: { 'If-None-Match': etag },
+      }, (res) => {
+        res.resume();
+        resolve(res.statusCode);
+      });
+      req.on('error', reject);
+    });
+    assert.strictEqual(status, 304, 'өзгермеген файл 304 қайтаруы керек');
+  } finally {
+    srv.close();
+  }
+});
+
 test('Helmet қауіпсіздік тақырыптарын қосады', async () => {
   const res = await fetch(`${base}/api/health`);
   assert.ok(res.headers.get('content-security-policy'), 'CSP бар');

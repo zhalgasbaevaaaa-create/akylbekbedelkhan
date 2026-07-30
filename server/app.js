@@ -73,9 +73,33 @@ function createApp() {
     res.sendFile(path.join(config.clientDir, 'admin', 'index.html')));
   app.get('/', (req, res) => res.sendFile(path.join(config.clientDir, 'index.html')));
 
+  /*
+   * Кэш стратегиясы.
+   *
+   * Ресурстар (сурет, аудио) сирек өзгереді — оларды ұзақ кэштеуге болады.
+   * Ал HTML/CSS/JS әр деплойда өзгеруі мүмкін: оларды ұзақ кэштесек,
+   * студенттердің браузері ескі нұсқаны ұстап қалады да, түзетулер
+   * көрінбейді. Сондықтан код файлдары әрқашан серверден тексеріледі
+   * (no-cache = ETag арқылы жылдам валидация, өзгермесе 304 қайтады).
+   */
+  const LONG_CACHE = /\.(png|jpe?g|gif|webp|svg|ico|ogg|mp3|wav|woff2?|ttf|otf)$/i;
+
   app.use(express.static(config.clientDir, {
-    maxAge: config.env === 'production' ? '7d' : 0,
     redirect: false,
+    etag: true,
+    lastModified: true,
+    setHeaders(res, filePath) {
+      if (config.env !== 'production') {
+        res.setHeader('Cache-Control', 'no-store');
+        return;
+      }
+      if (LONG_CACHE.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      } else {
+        // HTML, CSS, JS — деплойдан кейін бірден жаңарады
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+      }
+    },
   }));
 
   app.use('/api', notFound);
