@@ -231,8 +231,8 @@ test('Көп элементті тапсырма беттерге бөлінед
   renderStage({ id: 'sBig', type: 'matching', total: 25, items }, ctx);
 
   const firstPage = host.querySelectorAll('.match-slot').length;
-  assert.ok(firstPage <= 12, `бір бетте ${firstPage} элемент — 12-ден аспауы керек`);
-  assert.ok(firstPage >= 8, `бет тым кішкентай болмауы керек (${firstPage})`);
+  assert.ok(firstPage <= 10, `бір бетте ${firstPage} элемент — 10-нан аспауы керек`);
+  assert.ok(firstPage >= 3, `бет тым кішкентай болмауы керек (${firstPage})`);
   assert.ok(host.textContent.includes('бет'), 'бет нөмірі көрсетілуі керек');
 
   // Барлық беттерді ретімен шешіп шығу
@@ -242,7 +242,7 @@ test('Көп элементті тапсырма беттерге бөлінед
     const slots = [...host.querySelectorAll('.match-slot')];
     if (!slots.length) break;
     const chips = [...host.querySelectorAll('.chip')];
-    assert.ok(slots.length <= 12, `${pagesVisited + 1}-бетте ${slots.length} элемент — 12-ден аспауы керек`);
+    assert.ok(slots.length <= 10, `${pagesVisited + 1}-бетте ${slots.length} элемент — 10-нан аспауы керек`);
     seen += slots.length;
     pagesVisited += 1;
     for (let i = 0; i < slots.length; i++) {
@@ -258,26 +258,82 @@ test('Көп элементті тапсырма беттерге бөлінед
   assert.strictEqual(state.done, true, 'кезең аяқталды');
 });
 
-test('Элемент саны көп болса тығыздық класы қосылады', () => {
+test('Бір беттегі элемент саны экранға қарай бейімделеді', async () => {
+  const { getMaxPerPage, setMaxPerPage } = await import('../client/src/components/tasks.js');
+
+  setMaxPerPage(null); // автоматты режимге қайтару
+
+  const cases = [
+    { w: 1920, h: 1080, min: 8, max: 10, name: 'FullHD' },
+    { w: 1366, h: 768, min: 5, max: 8, name: 'Ноутбук 768p' },
+    { w: 390, h: 844, min: 3, max: 5, name: 'Телефон' },
+    { w: 844, h: 390, min: 3, max: 4, name: 'Көлденең телефон' },
+  ];
+  for (const c of cases) {
+    dom.reconfigure({ windowTop: dom.window });
+    Object.defineProperty(dom.window, 'innerWidth', { value: c.w, configurable: true });
+    Object.defineProperty(dom.window, 'innerHeight', { value: c.h, configurable: true });
+    const n = getMaxPerPage();
+    assert.ok(n >= c.min && n <= c.max,
+      `${c.name} (${c.w}x${c.h}): ${n} элемент — ${c.min}..${c.max} аралығында болуы керек`);
+  }
+});
+
+test('Мұғалім бір беттегі санды қолмен орната алады', async () => {
+  const { getMaxPerPage, setMaxPerPage } = await import('../client/src/components/tasks.js');
+
+  assert.strictEqual(setMaxPerPage(5), 5, 'қойылған мән қабылданады');
+  assert.strictEqual(getMaxPerPage(), 5, 'кейін де сол мән қайтады');
+
+  assert.strictEqual(setMaxPerPage(999), 10, 'жоғарғы шектен аспайды');
+  assert.strictEqual(setMaxPerPage(0), 3, 'төменгі шектен түспейді');
+
+  setMaxPerPage(null);
+  assert.ok(getMaxPerPage() >= 3, 'null берілсе автоматты режимге оралады');
+});
+
+test('Қолмен қойылған сан беттерге бөлуге әсер етеді', async () => {
+  const { setMaxPerPage } = await import('../client/src/components/tasks.js');
+  setMaxPerPage(4);
+
+  const host = document.createElement('div');
+  const items = Array.from({ length: 12 }, (_, i) => ({
+    id: `p${i}`, number: i + 1, group: 1, left: `L${i}`, right: `R${i}`,
+  }));
+  renderStage({ id: 'sp', type: 'matching', total: 12, items }, makeCtx(host).ctx);
+
+  assert.strictEqual(host.querySelectorAll('.match-slot').length, 4,
+    'бір бетте дәл 4 элемент болуы керек');
+  assert.ok(host.textContent.includes('1/3 бет'), '12 элемент 3 бетке бөлінеді');
+
+  setMaxPerPage(null); // кейінгі сынақтарға әсер етпеуі үшін
+});
+
+test('Элемент саны көп болса тығыздық класы қосылады', async () => {
+  const { setMaxPerPage } = await import('../client/src/components/tasks.js');
+  // Бет өлшемін бекітеміз — әйтпесе элементтер бөлініп кетеді
+  setMaxPerPage(10);
+
   const mk = (n) => Array.from({ length: n }, (_, i) => ({
     id: `d${i}`, number: i + 1, group: 1, left: `L${i}`, right: `R${i}`,
   }));
 
   const h1 = document.createElement('div');
-  renderStage({ id: 'a', type: 'matching', total: 5, items: mk(5) }, makeCtx(h1).ctx);
+  renderStage({ id: 'a', type: 'matching', total: 4, items: mk(4) }, makeCtx(h1).ctx);
   assert.ok(!h1.classList.contains('dense') && !h1.classList.contains('ultra-dense'),
-    '5 элемент — қалыпты режим');
+    '4 элемент — қалыпты режим (ірі шрифт)');
 
   const h2 = document.createElement('div');
-  renderStage({ id: 'b', type: 'matching', total: 9, items: mk(9) }, makeCtx(h2).ctx);
-  assert.ok(h2.classList.contains('dense'), '9 элемент — dense режимі');
+  renderStage({ id: 'b', type: 'matching', total: 7, items: mk(7) }, makeCtx(h2).ctx);
+  assert.ok(h2.classList.contains('dense'), '7 элемент — dense режимі');
 
-  // 12 элемент бір бетке сыяды (MAX_PER_PAGE = 12) -> ultra-dense
   const h3 = document.createElement('div');
-  renderStage({ id: 'c', type: 'timeline', total: 12, items: Array.from({ length: 12 }, (_, i) => ({
+  renderStage({ id: 'c', type: 'timeline', total: 10, items: Array.from({ length: 10 }, (_, i) => ({
     id: `t${i}`, number: i + 1, date: `${1200 + i} ж.`, event: `Оқиға ${i}`,
   })) }, makeCtx(h3).ctx);
-  assert.ok(h3.classList.contains('ultra-dense'), '12 элемент — ultra-dense режимі');
+  assert.ok(h3.classList.contains('ultra-dense'), '10 элемент — ultra-dense режимі');
+
+  setMaxPerPage(null);
 });
 
 test('CSS-те тығыздық режимдері мен ішкі скролл бар', () => {

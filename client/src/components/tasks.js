@@ -11,13 +11,15 @@ import { makeDraggable, makeDropZone, enableTouchDrag, enableClickPlace } from '
 
 /**
  * Элемент санына қарай тығыздық режимін таңдау.
- * Беттерге бөлумен бірге жұмыс істейді: бір бетте ең көбі MAX_PER_PAGE
+ *
+ * Беттерге бөлумен бірге жұмыс істейді: бір бетте ең көбі getMaxPerPage()
  * элемент болады, ал шрифт пен биіктік сол санға қарай реттеледі.
+ * Элемент аз болса — ірі әрі оқуға ыңғайлы күйінде қалады.
  */
 function applyDensity(host, count) {
   host.classList.remove('dense', 'ultra-dense');
-  if (count >= 12) host.classList.add('ultra-dense');
-  else if (count >= 8) host.classList.add('dense');
+  if (count >= 9) host.classList.add('ultra-dense');
+  else if (count >= 6) host.classList.add('dense');
 }
 
 /**
@@ -133,8 +135,61 @@ export function renderQuiz(stage, ctx) {
 
 /* =================== 2. Matching / Pair (Drag & Drop) =================== */
 
-/** Экранға сыятындай етіп бір бетте көрсетілетін максимум элемент саны */
-const MAX_PER_PAGE = 12;
+/* ------------------- Бір беттегі элемент саны -------------------------- */
+
+/** Қолмен реттеуге арналған шектер */
+const PAGE_LIMITS = { min: 3, max: 10, fallback: 7 };
+
+/**
+ * Бір элементке бөлінетін биіктік (px).
+ * Слоттың нақты биіктігінен (32–46px) әдейі үлкен алынған: жолдар
+ * бір-біріне жабыспай, көзге еркін көрінуі үшін.
+ */
+const ROW_HEIGHT = 72;
+
+/**
+ * Бір бетте көрсетілетін максимум элемент саны.
+ *
+ * Басымдық реті:
+ *   1) Мұғалім қойған мән (localStorage: kzrpg_page_size)
+ *   2) Экран өлшеміне қарай автоматты есептеу
+ *
+ * Тар экранда (мобильді) сұрақ пен жауап тік орналасады, сондықтан
+ * бір элемент екі есе орын алады — ол да ескеріледі.
+ */
+export function getMaxPerPage() {
+  const saved = Number(localStorage.getItem('kzrpg_page_size'));
+  if (Number.isFinite(saved) && saved >= PAGE_LIMITS.min && saved <= PAGE_LIMITS.max) {
+    return Math.floor(saved);
+  }
+
+  const h = (typeof window !== 'undefined' && window.innerHeight) || 0;
+  const w = (typeof window !== 'undefined' && window.innerWidth) || 0;
+  if (!h) return PAGE_LIMITS.fallback;
+
+  // Тапсырма терезесінен тыс кететін биіктік: HUD + тақырып + feedback + шеттер
+  const chrome = h <= 560 ? 150 : h <= 700 ? 180 : 210;
+  // 780px-тен тар экранда бағандар тік жинақталады (CSS media query)
+  const row = w && w < 780 ? ROW_HEIGHT * 2 : ROW_HEIGHT;
+  const fits = Math.floor((h - chrome) / row);
+
+  return Math.max(PAGE_LIMITS.min, Math.min(PAGE_LIMITS.max, fits));
+}
+
+/**
+ * Бір беттегі элемент санын қолмен орнату (админ/мұғалім үшін).
+ * Браузер консолінде: kzrpgSetPageSize(6)
+ * Қалпына келтіру:    kzrpgSetPageSize(null)
+ */
+export function setMaxPerPage(value) {
+  if (value == null) {
+    localStorage.removeItem('kzrpg_page_size');
+    return getMaxPerPage();
+  }
+  const n = Math.max(PAGE_LIMITS.min, Math.min(PAGE_LIMITS.max, Math.floor(Number(value) || 0)));
+  localStorage.setItem('kzrpg_page_size', String(n));
+  return n;
+}
 
 /**
  * Элементтерді топ (group) және бет бойынша бөлу.
@@ -142,12 +197,13 @@ const MAX_PER_PAGE = 12;
  * әйтпесе экранға сыймайды және ойнау ыңғайсыз болады.
  */
 function paginate(stage, keepOrder) {
+  const maxPerPage = getMaxPerPage();
   const groupIds = [...new Set(stage.items.map((i) => i.group || 1))];
   const pages = [];
   groupIds.forEach((gid) => {
     const source = stage.items.filter((i) => (i.group || 1) === gid);
     const ordered = keepOrder ? source : shuffle(source);
-    const pageCount = Math.ceil(ordered.length / MAX_PER_PAGE);
+    const pageCount = Math.ceil(ordered.length / maxPerPage);
     // Беттерді біркелкі бөлу (мыс. 25 -> 13+12, 9+8+8 емес)
     const perPage = Math.ceil(ordered.length / pageCount);
     for (let i = 0; i < ordered.length; i += perPage) {

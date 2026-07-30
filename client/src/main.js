@@ -4,6 +4,7 @@
 import api, { setToken } from './components/api.js';
 import audio from './components/audio.js';
 import { $, el, clear, showScreen, toast, setAlert } from './components/ui.js';
+import { getMaxPerPage, setMaxPerPage } from './components/tasks.js';
 import { BootScene, CHARACTERS } from './scenes/BootScene.js';
 import { CastleScene } from './scenes/CastleScene.js';
 import { Game } from './game.js';
@@ -177,6 +178,20 @@ function init() {
   });
 
   // Тапсырмалардың бар-жоғын тексеру
+  /*
+   * Мұғалімге арналған реттеу: бір бетте қанша тапсырма көрсетілетінін
+   * браузер консолінен өзгертуге болады.
+   *   kzrpgSetPageSize(6)     — бір бетте 6 элемент
+   *   kzrpgSetPageSize(null)  — экранға қарай автоматты (әдепкі)
+   *   kzrpgPageSize()         — қазіргі мәнді көру
+   */
+  window.kzrpgSetPageSize = (n) => {
+    const applied = setMaxPerPage(n);
+    toast(`Бір беттегі тапсырма саны: ${applied}${n == null ? ' (автоматты)' : ''}`, 'success');
+    return applied;
+  };
+  window.kzrpgPageSize = () => getMaxPerPage();
+
   api.tasks().then((t) => {
     $('#menu-info').textContent = `${t.roomCount} бөлме · ${t.totalQuestions} тапсырма дайын`;
   }).catch(() => {

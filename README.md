@@ -664,6 +664,7 @@ sudo apt install fonts-dejavu-core
 | Түстер | `client/src/styles.css` → `:root` айнымалылары |
 | Аудио | `npm run audio` (`tools/generate-audio.py` ішіндегі әуенді өзгертіңіз) |
 | Жүрек саны / бонустар | `.env` → `HEARTS_PER_ROOM`, `BONUS_*` |
+| Бір беттегі тапсырма саны | Консольде `kzrpgSetPageSize(5)` · [docs/PAGE-SIZE.md](docs/PAGE-SIZE.md) |
 | Әрекет саны | `.env` → `MAX_ATTEMPTS` |
 
 ---
