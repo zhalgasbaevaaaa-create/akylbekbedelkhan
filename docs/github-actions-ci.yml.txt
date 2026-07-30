@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Тәуелділіктерді орнату
+        run: npm ci
+
+      - name: Сынақтарды жүргізу
+        run: npm test
+        env:
+          JWT_SECRET: ci-test-secret-key-not-for-production
+
+      - name: Production build
+        run: npm run build
+
+# ---------------------------------------------------------------------------
+# ЕСКЕРТУ: бұл файл әдейі .txt кеңейтімімен сақталған.
+# Автоматты сынақтарды қосу үшін:
+#   1) GitHub → репозиторий → Actions → New workflow → set up a workflow yourself
+#   2) Осы файлдың мазмұнын көшіріп қойыңыз (осы ескертусіз)
+#   3) Файл атын .github/workflows/ci.yml деп сақтаңыз
+# Себебі: Personal Access Token-ге `workflow` құқығы қажет, ол әдепкіде жоқ.
+# ---------------------------------------------------------------------------
