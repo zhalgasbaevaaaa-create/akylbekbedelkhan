@@ -17,7 +17,8 @@
     "postinstall": "node -e \"require('fs').existsSync('.env')||require('fs').copyFileSync('.env.example','.env')\"",
     "test:server": "node tests/flow.test.js",
     "test:client": "node tests/client.test.mjs",
-    "test:postgres": "node tests/postgres.test.mjs"
+    "test:postgres": "node tests/postgres.test.mjs",
+    "render:sim": "node tests/render-sim.mjs"
   },
   "keywords": [
     "kazakhstan-history",
