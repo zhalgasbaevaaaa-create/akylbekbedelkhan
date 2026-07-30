@@ -221,6 +221,76 @@ test('Matching бірнеше бөлімді (group) ретімен көрсет
   assert.ok(texts.some((t) => t.includes('L3')), '2-бөлім ашылуы керек');
 });
 
+test('Көп элементті тапсырма беттерге бөлінеді (экранға сыю үшін)', async () => {
+  const host = document.createElement('div');
+  const { ctx, state } = makeCtx(host);
+  // 25 элемент — 7-бөлмедегідей
+  const items = Array.from({ length: 25 }, (_, i) => ({
+    id: `x${i + 1}`, number: i + 1, group: 1, left: `Сол ${i + 1}`, right: `Оң ${i + 1}`,
+  }));
+  renderStage({ id: 'sBig', type: 'matching', total: 25, items }, ctx);
+
+  const firstPage = host.querySelectorAll('.match-slot').length;
+  assert.ok(firstPage <= 12, `бір бетте ${firstPage} элемент — 12-ден аспауы керек`);
+  assert.ok(firstPage >= 8, `бет тым кішкентай болмауы керек (${firstPage})`);
+  assert.ok(host.textContent.includes('бет'), 'бет нөмірі көрсетілуі керек');
+
+  // Барлық беттерді ретімен шешіп шығу
+  let seen = 0;
+  let pagesVisited = 0;
+  for (let guard = 0; guard < 10 && !state.done; guard++) {
+    const slots = [...host.querySelectorAll('.match-slot')];
+    if (!slots.length) break;
+    const chips = [...host.querySelectorAll('.chip')];
+    assert.ok(slots.length <= 12, `${pagesVisited + 1}-бетте ${slots.length} элемент — 12-ден аспауы керек`);
+    seen += slots.length;
+    pagesVisited += 1;
+    for (let i = 0; i < slots.length; i++) {
+      chips[i].click();
+      slots[i].click();
+      await new Promise((r) => setTimeout(r, 6));
+    }
+    await new Promise((r) => setTimeout(r, 900));
+  }
+  assert.ok(pagesVisited >= 3, `25 элемент кемінде 3 бетке бөлінуі керек (${pagesVisited})`);
+  assert.strictEqual(seen, 25, 'барлық 25 элемент қамтылды');
+  assert.strictEqual(state.correct, 25, 'барлық жауап есептелді');
+  assert.strictEqual(state.done, true, 'кезең аяқталды');
+});
+
+test('Элемент саны көп болса тығыздық класы қосылады', () => {
+  const mk = (n) => Array.from({ length: n }, (_, i) => ({
+    id: `d${i}`, number: i + 1, group: 1, left: `L${i}`, right: `R${i}`,
+  }));
+
+  const h1 = document.createElement('div');
+  renderStage({ id: 'a', type: 'matching', total: 5, items: mk(5) }, makeCtx(h1).ctx);
+  assert.ok(!h1.classList.contains('dense') && !h1.classList.contains('ultra-dense'),
+    '5 элемент — қалыпты режим');
+
+  const h2 = document.createElement('div');
+  renderStage({ id: 'b', type: 'matching', total: 9, items: mk(9) }, makeCtx(h2).ctx);
+  assert.ok(h2.classList.contains('dense'), '9 элемент — dense режимі');
+
+  // 12 элемент бір бетке сыяды (MAX_PER_PAGE = 12) -> ultra-dense
+  const h3 = document.createElement('div');
+  renderStage({ id: 'c', type: 'timeline', total: 12, items: Array.from({ length: 12 }, (_, i) => ({
+    id: `t${i}`, number: i + 1, date: `${1200 + i} ж.`, event: `Оқиға ${i}`,
+  })) }, makeCtx(h3).ctx);
+  assert.ok(h3.classList.contains('ultra-dense'), '12 элемент — ultra-dense режимі');
+});
+
+test('CSS-те тығыздық режимдері мен ішкі скролл бар', () => {
+  const css = fs.readFileSync(path.join(clientDir, 'src', 'styles.css'), 'utf8');
+  assert.ok(css.includes('.task-body.dense'), 'dense режимі анықталған');
+  assert.ok(css.includes('.task-body.ultra-dense'), 'ultra-dense режимі анықталған');
+  assert.ok(/\.task-body\s*\{[^}]*overflow-y:\s*auto/s.test(css),
+    '.task-body ішінде скролл болуы керек');
+  assert.ok(/#task-layer\s*\{[^}]*overflow:\s*hidden/s.test(css),
+    '#task-layer сыртқы скроллды болдырмауы керек');
+  assert.ok(css.includes('@media (max-height: 700px)'), 'аласа экран үшін media query бар');
+});
+
 test('Барлық HTML файлдарда inline onclick жоқ (CSP-ге сай)', () => {
   const files = ['index.html', 'admin/index.html'];
   for (const f of files) {

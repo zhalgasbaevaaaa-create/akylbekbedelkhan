@@ -93,14 +93,47 @@ async function migrate() {
   const db = getDb();
   await db.exec(db.dialect === 'postgres' ? PG_SCHEMA : SQLITE_SCHEMA);
 
-  // Админ паролін bcrypt hash ретінде сақтау
-  const existing = await db.one('SELECT value FROM settings WHERE key = $1', ['admin_password_hash']);
-  if (!existing) {
-    const hash = config.admin.passwordHash
-      || bcrypt.hashSync(config.admin.password, config.admin.bcryptRounds);
-    await db.run('INSERT INTO settings (key, value) VALUES ($1, $2)', ['admin_password_hash', hash]);
-  }
+  await syncAdminPassword(db);
   return db;
+}
+
+/**
+ * Админ паролін bcrypt hash ретінде сақтау / жаңарту.
+ *
+ * Маңызды: hash дерекқорда сақталады, ал дерекқор деплойлар арасында
+ * өмір сүреді. Сондықтан ADMIN_PASSWORD орта айнымалысы өзгерсе, hash
+ * автоматты жаңартылады — әйтпесе пароль ұмытылса, панельге кіру мүмкін
+ * болмай қалар еді.
+ *
+ * Панель арқылы қойылған пароль (ADMIN_PASSWORD берілмеген жағдайда)
+ * өзгеріссіз қалады.
+ */
+async function syncAdminPassword(db) {
+  const row = await db.one('SELECT value FROM settings WHERE key = $1', ['admin_password_hash']);
+  const envPassword = String(process.env.ADMIN_PASSWORD || '').trim();
+  const envHash = String(config.admin.passwordHash || '').trim();
+
+  // 1) Алғаш рет — hash жасаймыз
+  if (!row) {
+    const hash = envHash || bcrypt.hashSync(config.admin.password, config.admin.bcryptRounds);
+    await db.run('INSERT INTO settings (key, value) VALUES ($1, $2)', ['admin_password_hash', hash]);
+    console.log('[ADMIN] Пароль hash-і құрылды.');
+    return;
+  }
+
+  // 2) ADMIN_PASSWORD_HASH тікелей берілсе — соны қолданамыз
+  if (envHash && envHash !== row.value) {
+    await db.run('UPDATE settings SET value = $1 WHERE key = $2', [envHash, 'admin_password_hash']);
+    console.log('[ADMIN] Пароль hash-і ADMIN_PASSWORD_HASH мәнінен жаңартылды.');
+    return;
+  }
+
+  // 3) ADMIN_PASSWORD берілген және сақталған hash-пен сәйкес келмесе — жаңартамыз
+  if (envPassword && !bcrypt.compareSync(envPassword, row.value)) {
+    const hash = bcrypt.hashSync(envPassword, config.admin.bcryptRounds);
+    await db.run('UPDATE settings SET value = $1 WHERE key = $2', [hash, 'admin_password_hash']);
+    console.log('[ADMIN] Пароль ADMIN_PASSWORD орта айнымалысынан жаңартылды.');
+  }
 }
 
 module.exports = { migrate, SQLITE_SCHEMA };

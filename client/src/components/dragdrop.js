@@ -35,7 +35,18 @@ export function makeDropZone(zone, onDrop) {
  * Сенсорлы экран қолдауы: чипті саусақпен сүйреу.
  * Сондай-ақ «чипті бас — слотты бас» режимі де жұмыс істейді.
  */
+const TOUCH_HANDLERS = new WeakMap();
+
 export function enableTouchDrag(container, chipSelector, zoneSelector, onDrop) {
+  // Қайта тіркелуден қорғану (беттер ауысқанда listener жиналып қалмауы үшін)
+  const previous = TOUCH_HANDLERS.get(container);
+  if (previous) {
+    container.removeEventListener('touchstart', previous.start);
+    container.removeEventListener('touchmove', previous.move);
+    container.removeEventListener('touchend', previous.finish);
+    container.removeEventListener('touchcancel', previous.finish);
+  }
+
   let active = null;
   let ghost = null;
   let moved = false;
@@ -47,7 +58,7 @@ export function enableTouchDrag(container, chipSelector, zoneSelector, onDrop) {
     return target ? target.closest(zoneSelector) : null;
   };
 
-  container.addEventListener('touchstart', (e) => {
+  const onStart = (e) => {
     const chip = e.target.closest(chipSelector);
     if (!chip || chip.classList.contains('locked')) return;
     active = chip;
@@ -70,9 +81,9 @@ export function enableTouchDrag(container, chipSelector, zoneSelector, onDrop) {
       x: e.touches[0].clientX - rect.left,
       y: e.touches[0].clientY - rect.top,
     };
-  }, { passive: true });
+  };
 
-  container.addEventListener('touchmove', (e) => {
+  const onMove = (e) => {
     if (!active || !ghost) return;
     moved = true;
     e.preventDefault();
@@ -82,7 +93,7 @@ export function enableTouchDrag(container, chipSelector, zoneSelector, onDrop) {
     container.querySelectorAll(`${zoneSelector}.over`).forEach((z) => z.classList.remove('over'));
     const zone = findZone(t.clientX, t.clientY);
     if (zone) zone.classList.add('over');
-  }, { passive: false });
+  };
 
   const finish = (e) => {
     if (!active) return;
@@ -98,14 +109,30 @@ export function enableTouchDrag(container, chipSelector, zoneSelector, onDrop) {
     active = null;
   };
 
+  container.addEventListener('touchstart', onStart, { passive: true });
+  container.addEventListener('touchmove', onMove, { passive: false });
   container.addEventListener('touchend', finish);
   container.addEventListener('touchcancel', finish);
+  TOUCH_HANDLERS.set(container, { start: onStart, move: onMove, finish });
 }
 
-/** Click-to-place режимі: чипті таңдап, содан кейін слотты басу */
+/**
+ * Click-to-place режимі: чипті таңдап, содан кейін слотты басу.
+ *
+ * Маңызды: бір контейнерге қайта-қайта listener қосылмауы керек.
+ * Тапсырма бірнеше бетке бөлінгенде renderGroup() бірнеше рет
+ * шақырылады, ал listener жиналып қалса, бір click бірнеше рет
+ * өңделіп, ұпай қате есептелер еді. Сондықтан ескі listener алдымен
+ * алынып тасталады.
+ */
+const CLICK_HANDLERS = new WeakMap();
+
 export function enableClickPlace(container, chipSelector, zoneSelector, onDrop) {
+  const previous = CLICK_HANDLERS.get(container);
+  if (previous) container.removeEventListener('click', previous);
+
   let selected = null;
-  container.addEventListener('click', (e) => {
+  const handler = (e) => {
     const chip = e.target.closest(chipSelector);
     const zone = e.target.closest(zoneSelector);
 
@@ -126,5 +153,8 @@ export function enableClickPlace(container, chipSelector, zoneSelector, onDrop) 
       selected = null;
       onDrop(chosen, zone);
     }
-  });
+  };
+
+  container.addEventListener('click', handler);
+  CLICK_HANDLERS.set(container, handler);
 }

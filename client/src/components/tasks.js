@@ -10,6 +10,17 @@ import { el, clear, shuffle } from './ui.js';
 import { makeDraggable, makeDropZone, enableTouchDrag, enableClickPlace } from './dragdrop.js';
 
 /**
+ * Элемент санына қарай тығыздық режимін таңдау.
+ * Беттерге бөлумен бірге жұмыс істейді: бір бетте ең көбі MAX_PER_PAGE
+ * элемент болады, ал шрифт пен биіктік сол санға қарай реттеледі.
+ */
+function applyDensity(host, count) {
+  host.classList.remove('dense', 'ultra-dense');
+  if (count >= 12) host.classList.add('ultra-dense');
+  else if (count >= 8) host.classList.add('dense');
+}
+
+/**
  * @typedef {Object} TaskContext
  * @property {HTMLElement} host       тапсырма контейнері
  * @property {Function} check         async (stageId, itemId, value) => {correct}
@@ -52,6 +63,8 @@ export function renderQuiz(stage, ctx) {
       el('div', { class: 'quiz-question', text: `${index + 1}. ${item.question}` }),
       el('div', { class: 'quiz-options' }, optionNodes),
     );
+    applyDensity(ctx.host, 0); // тест бір сұрақтан тұрады — тығыздау қажет емес
+    ctx.host.scrollTop = 0;
 
     startTimer(() => {
       // Уақыт бітті — қате есептеледі, келесі сұраққа автоматты өту
@@ -120,21 +133,49 @@ export function renderQuiz(stage, ctx) {
 
 /* =================== 2. Matching / Pair (Drag & Drop) =================== */
 
+/** Экранға сыятындай етіп бір бетте көрсетілетін максимум элемент саны */
+const MAX_PER_PAGE = 12;
+
+/**
+ * Элементтерді топ (group) және бет бойынша бөлу.
+ * PDF-те 25 элементті бөлім болуы мүмкін — оны бірнеше бетке бөлеміз,
+ * әйтпесе экранға сыймайды және ойнау ыңғайсыз болады.
+ */
+function paginate(stage, keepOrder) {
+  const groupIds = [...new Set(stage.items.map((i) => i.group || 1))];
+  const pages = [];
+  groupIds.forEach((gid) => {
+    const source = stage.items.filter((i) => (i.group || 1) === gid);
+    const ordered = keepOrder ? source : shuffle(source);
+    const pageCount = Math.ceil(ordered.length / MAX_PER_PAGE);
+    // Беттерді біркелкі бөлу (мыс. 25 -> 13+12, 9+8+8 емес)
+    const perPage = Math.ceil(ordered.length / pageCount);
+    for (let i = 0; i < ordered.length; i += perPage) {
+      pages.push({
+        group: gid,
+        groupCount: groupIds.length,
+        page: Math.floor(i / perPage) + 1,
+        pageCount,
+        items: ordered.slice(i, i + perPage),
+      });
+    }
+  });
+  return pages;
+}
+
 export function renderMatching(stage, ctx, options = {}) {
-  const groups = [...new Set(stage.items.map((i) => i.group || 1))];
+  const pages = paginate(stage, options.keepOrder);
   let groupIndex = 0;
   let timerId = null;
 
   const renderGroup = () => {
-    if (groupIndex >= groups.length || !ctx.isAlive()) {
+    if (groupIndex >= pages.length || !ctx.isAlive()) {
       stopTimer();
       ctx.onDone();
       return;
     }
-    const group = groups[groupIndex];
-    const source = stage.items.filter((i) => (i.group || 1) === group);
-    // Timeline-да сол жақ баған (даталар) хронологиялық ретте қалуы керек
-    const items = options.keepOrder ? source : shuffle(source);
+    const current = pages[groupIndex];
+    const items = current.items;
     let solved = 0;
 
     const leftLabel = options.leftLabel || 'Сұрақ';
@@ -169,13 +210,22 @@ export function renderMatching(stage, ctx, options = {}) {
       el('div', {}, [el('div', { class: 'match-col-title', text: rightLabel }), bank]),
     ]);
 
+    const label = [];
+    if (current.groupCount > 1) label.push(`${current.group}-бөлім`);
+    if (current.pageCount > 1) label.push(`${current.page}/${current.pageCount} бет`);
+
     clear(ctx.host).append(
-      groups.length > 1
-        ? el('div', { class: 'task-progress', style: { marginBottom: '12px', textAlign: 'center' },
-            text: `${group}-бөлім (${groupIndex + 1}/${groups.length})` })
+      pages.length > 1
+        ? el('div', {
+            class: 'task-progress',
+            style: { marginBottom: '8px', textAlign: 'center' },
+            text: `${label.join(' · ')}  (${groupIndex + 1}/${pages.length})`,
+          })
         : null,
       wrap,
     );
+    applyDensity(ctx.host, items.length);
+    ctx.host.scrollTop = 0;
     ctx.onProgress(0, items.length);
 
     const place = async (chip, slot) => {
@@ -235,11 +285,19 @@ export function renderMatching(stage, ctx, options = {}) {
     enableTouchDrag(ctx.host, '.chip', '.match-slot, #chip-bank', place);
     enableClickPlace(ctx.host, '.chip', '.match-slot', place);
 
-    const limit = options.timeLimitSeconds || ctx.timeLimitSeconds;
-    if (limit) startTimer(limit, () => {
-      ctx.feedback('⏱ Уақыт бітті! Келесі бөлімге өтеміз.', false);
-      setTimeout(nextGroup, 900);
-    });
+    // PDF-тегі уақыт лимиті бүкіл бөлімге берілген. Бөлім бірнеше бетке
+    // бөлінсе, уақытты беттер санына пропорционал бөлеміз.
+    const baseLimit = options.timeLimitSeconds || ctx.timeLimitSeconds;
+    const limit = baseLimit
+      ? Math.max(20, Math.round(baseLimit / (current.pageCount || 1)))
+      : null;
+    if (limit) {
+      startTimer(limit, () => {
+        const last = groupIndex + 1 >= pages.length;
+        ctx.feedback(last ? '⏱ Уақыт бітті!' : '⏱ Уақыт бітті! Келесі бөлімге өтеміз.', false);
+        setTimeout(nextGroup, 900);
+      });
+    }
   };
 
   const nextGroup = () => {
@@ -321,9 +379,10 @@ export function renderCards(stage, ctx) {
   clear(ctx.host).append(
     el('div', { class: 'match-col-title', text: 'Фактілер' }),
     el('div', { class: 'cards-wrap' }, cards),
-    el('div', { class: 'match-col-title', style: { marginTop: '20px' }, text: 'Түсіндірмелер' }),
+    el('div', { class: 'match-col-title', style: { marginTop: '12px' }, text: 'Түсіндірмелер' }),
     bank,
   );
+  applyDensity(ctx.host, items.length);
   ctx.onProgress(0, items.length);
 
   const place = async (chip, card) => {
