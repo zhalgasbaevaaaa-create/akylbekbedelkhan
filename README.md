@@ -429,6 +429,81 @@ kz-history-rpg/
 
 ---
 
+## ☁️ Интернетке шығару (деплой)
+
+Жоба тегін хостингтерге дайын — конфигурация файлдары репозиторийде бар.
+
+### 1-нұсқа · Render.com (ең оңай, ұсынылады)
+
+1. [render.com](https://render.com) сайтына GitHub арқылы кіріңіз
+2. **New → Blueprint** → осы репозиторийді таңдаңыз
+3. Render `render.yaml` файлын өзі оқиды. `ADMIN_PASSWORD` мәнін енгізіңіз
+4. **Apply** → 3–5 минуттан кейін сайт дайын
+
+Мекенжай: `https://kz-history-rpg.onrender.com`
+
+> 💡 Тегін жоспарда сайт 15 минут белсенділік болмаса «ұйықтап» қалады,
+> келесі кіргенде ~30 секунд оянады. Деректер 1 ГБ дискіде сақталады.
+
+### 2-нұсқа · Railway
+
+1. [railway.app](https://railway.app) → **New Project → Deploy from GitHub repo**
+2. Variables бөліміне қосыңыз:
+   ```
+   JWT_SECRET      = (ұзын кездейсоқ жол)
+   ADMIN_PASSWORD  = (өз пароліңіз)
+   SQLITE_FILE     = /data/game.db
+   UPLOADS_DIR     = /data/uploads
+   ```
+3. **Settings → Volumes** → `/data` жолына volume қосыңыз
+4. Deploy
+
+### 3-нұсқа · Fly.io (тұрақты жұмыс, ұйықтамайды)
+
+```bash
+fly launch --no-deploy
+fly volumes create game_data --size 1 --region fra
+fly secrets set JWT_SECRET="$(openssl rand -hex 32)" ADMIN_PASSWORD="өз-паролыңыз"
+fly deploy
+```
+
+### 4-нұсқа · Өз серверіңіз (VPS)
+
+```bash
+git clone https://github.com/zhalgasbaevaaaa-create/akylbekbedelkhan.git
+cd akylbekbedelkhan
+echo "JWT_SECRET=$(openssl rand -hex 32)" > .env
+echo "ADMIN_PASSWORD=өз-паролыңыз" >> .env
+docker compose up -d --build
+```
+
+Nginx арқылы домен мен HTTPS қосу:
+
+```nginx
+server {
+    server_name tarih.example.kz;
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+sudo certbot --nginx -d tarih.example.kz
+```
+
+> ⚠️ **Деплойдан кейін бірінші қадам:** админ панеліне кіріп, парольді
+> өзгертіңіз (⚙ Баптау → Парольді өзгерту).
+
+Бірінші іске қосылғанда `server/uploads/tasks.pdf` файлы тұрақты дискіге
+автоматты көшіріледі, сондықтан ойын бірден жұмыс істейді.
+
+---
+
 ## 🐳 Docker
 
 ```bash

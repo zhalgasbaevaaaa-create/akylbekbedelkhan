@@ -110,7 +110,9 @@ function main() {
   const pdf = path.join(root, 'server', 'uploads', 'tasks.pdf');
   if (fs.existsSync(pdf)) fs.copyFileSync(pdf, path.join(dist, 'server', 'uploads', 'tasks.pdf'));
 
-  for (const file of ['package.json', '.env.example', 'README.md', 'Dockerfile', 'docker-compose.yml']) {
+  const extras = ['package.json', 'package-lock.json', '.env.example', 'README.md',
+    'Dockerfile', 'docker-compose.yml', 'render.yaml', 'railway.json', 'fly.toml'];
+  for (const file of extras) {
     const from = path.join(root, file);
     if (fs.existsSync(from)) fs.copyFileSync(from, path.join(dist, file));
   }
